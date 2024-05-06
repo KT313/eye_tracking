@@ -1,0 +1,14 @@
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path:  /home/tobi/ai/projects/eye_tracking/data #../datasets/coco8-pose  # dataset root dir
+train: 03_train_split  # train images (relative to 'path') 4 images
+val: 03_val_split  # val images (relative to 'path') 4 images
+test:  # test images (optional)
+
+# Keypoints
+kpt_shape: [10, 3]  # number of keypoints, number of dims (2 for x,y or 3 for x,y,visible)
+# "eyeRO","eyeRC","eyeRI","nose","eyeLI","eyeLC","eyeLO","earL","mouthL","mouthB","mouthT","mouthR","earR" + "browRO","browRC","browRI","browLI","browLC","browLO"
+flip_idx: [5, 4, 3, 2, 1, 0, 8, 9, 6, 7]
+
+# Classes dictionary
+names:
+  0: eyes
