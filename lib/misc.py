@@ -18,7 +18,7 @@ class RandomObstruction(torch.nn.Module):
             img[:, y:y+obstruction_h, x:x+obstruction_w] = 0
         return img
 
-def train_model(pretrained_model='models/yolov8n-pose.pt', save_name="default_name", imgsz=64, epochs=200, batch=64, workspace="someworkspace", usecomet=True):
+def train_model(pretrained_model='models/yolov8n-pose.pt', save_name="default_name", imgsz=64, epochs=200, batch=64, amp=True, workspace="someworkspace", usecomet=True):
     if usecomet:
         experiment = Experiment(api_key=api_key, project_name="yolov8finetune_eyes", workspace=workspace)
 
@@ -51,7 +51,7 @@ def train_model(pretrained_model='models/yolov8n-pose.pt', save_name="default_na
             patience=0,
             val=True,
             device=0,
-            workers=8,
+            workers=4,
             verbose=False,
             pretrained=True,
             plots=True,
@@ -59,6 +59,7 @@ def train_model(pretrained_model='models/yolov8n-pose.pt', save_name="default_na
             cache=True,
             name=save_name, # Same as your comet project name
             project='yolov8finetune_eyes', # Same as your comet project name
+            amp=amp,
             
             epochs=epochs,
             
@@ -67,7 +68,7 @@ def train_model(pretrained_model='models/yolov8n-pose.pt', save_name="default_na
             batch=batch, 
             
             lr0=1e-3, 
-            lrf=1e-2, 
+            lrf=1e-1, 
             warmup_epochs=10,
             
             optimizer="AdamW", # SGD, Adam, AdamW, NAdam, RAdam, RMSProp
@@ -80,19 +81,19 @@ def train_model(pretrained_model='models/yolov8n-pose.pt', save_name="default_na
             hsv_h=0.4, # default 0.015
             hsv_s=1.0, # default 0.7
             hsv_v=0.7, # default 0.4
-            # scale=0.8,
+            scale=0.9,
     
-            mosaic=0.0,
-            degrees=90,
+            mosaic=0.2,
+            degrees=45,
             shear=20,
-            perspective=0.000,
+            perspective=0.005,
             
             #mixup=0.05,
             #bgr=0.05,
             #fliplr=0.05,
             #flipud=0.05,
             #crop_fraction=1.0,
-            crop_fraction=0.1,
+            crop_fraction=0.4,
             copy_paste=0.2,
             translate=0.5,
 
