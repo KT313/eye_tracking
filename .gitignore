@@ -3,4 +3,5 @@ data/03_train_split/*
 data/03_val_split/*
 .ipynb_checkpoints/
 .virtual_documents/
+.mypy_cache/
 yolov8finetune_eyes/*

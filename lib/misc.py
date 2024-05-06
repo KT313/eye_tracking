@@ -18,7 +18,7 @@ class RandomObstruction(torch.nn.Module):
             img[:, y:y+obstruction_h, x:x+obstruction_w] = 0
         return img
 
-def train_model(pretrained_model='models/yolov8n-pose.pt', save_name="default_name", imgsz=64, epochs=200, batch=64, workspace, usecomet=True):
+def train_model(pretrained_model='models/yolov8n-pose.pt', save_name="default_name", imgsz=64, epochs=200, batch=64, workspace="someworkspace", usecomet=True):
     if usecomet:
         experiment = Experiment(api_key=api_key, project_name="yolov8finetune_eyes", workspace=workspace)
 
