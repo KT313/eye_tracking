@@ -22,7 +22,17 @@ def train_model(pretrained_model='models/yolov8n-pose.pt', save_name="default_na
     if usecomet:
         experiment = Experiment(api_key=api_key, project_name="yolov8finetune_eyes", workspace=workspace)
 
-    
+    # clear folder first
+    for folder in [f"yolov8finetune_eyes/{save_name}"]:
+        for filename in os.listdir(folder):
+            file_path = os.path.join(folder, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print('Failed to delete %s. Reason: %s' % (file_path, e))
     
     try:
         
@@ -84,6 +94,7 @@ def train_model(pretrained_model='models/yolov8n-pose.pt', save_name="default_na
             #crop_fraction=1.0,
             crop_fraction=0.1,
             copy_paste=0.2,
+            translate=0.5,
 
         )
         if usecomet:
