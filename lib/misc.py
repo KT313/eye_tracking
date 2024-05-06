@@ -73,7 +73,7 @@ def train_model(pretrained_model='models/yolov8n-pose.pt', save_name="default_na
             # scale=0.8,
     
             mosaic=0.0,
-            degrees=30,
+            degrees=90,
             shear=20,
             perspective=0.000,
             
@@ -117,6 +117,7 @@ def multiply_training_data(rate):
 
 def prepare_video_annotations_for_training(val_ratio=0.1, multiply_train_data=1):
     # make sure folders are clean
+    os.makedirs("data/02_annotated_frames", exist_ok=True)
     for folder in ["data/02_annotated_frames"]:
         for filename in os.listdir(folder):
             file_path = os.path.join(folder, filename)
