@@ -11,7 +11,7 @@ for webcam use, set input_source to 0 in the notebook.
 </video>
 
 <video>
-  <source src="/assets/youtube_vid_01.mp4" type="video/mp4">
+  <source src="https://raw.githubusercontent.com/KT313/eye_tracking/main/assets/youtube_vid_01.mp4" type="video/mp4">
 </video>
 
 <video>
