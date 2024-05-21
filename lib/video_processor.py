@@ -1,4 +1,5 @@
 from .imports import *
+from . import misc
 
 class FrameElement():
     def __init__(self, face_bbox = None, eyes_points = None, frame = None, cutout_frame = None, stats = None, face_cutout_coords = None, detected_face = None, frame_id = None, annotate_eyes = None, annotate_face = None):
@@ -40,7 +41,7 @@ class VideoProcessor():
         self.return_instead = False
         self.return_instead_merker = []
 
-    def start(self, video_path, interpolate_rate, eyes_int_rate, return_instead=False, eye_batch_rate=1, device="cpu", disable_stats=False):
+    def start(self, video_path, interpolate_rate, eyes_int_rate, return_instead=False, eye_batch_rate=1, device="cpu", disable_stats=False, save_output=False, file_process_fast=False):
         self.disable_stats = disable_stats
         self.device = device
         self.eye_batch_rate = eye_batch_rate
@@ -57,10 +58,10 @@ class VideoProcessor():
         self.stop = False
         self.frame_queue = multiprocessing.Queue()
         self.stop_event = multiprocessing.Event()
-        self.return_instead = False
         self.return_instead_merker = []
         self.return_instead = return_instead
         self.stop = False
+        self.video_path = video_path
         cap = cv2.VideoCapture(video_path)
         self.native_fps = cap.get(cv2.CAP_PROP_FPS)
         self.iswebcam = True if isinstance(video_path, int) else False
@@ -68,6 +69,9 @@ class VideoProcessor():
         self.block_startframe = 0
         self.block_endframe = self.interpolate_rate+1
         self.is_first_frame = True
+        self.save_output = save_output
+        self.save_output_queue = multiprocessing.Queue()
+        self.file_process_fast = file_process_fast
 
         self.proctime_get_face_rect = deque(maxlen=self.avg_len)
         self.proctime_get_face_cutout = deque(maxlen=self.avg_len)
@@ -76,7 +80,9 @@ class VideoProcessor():
         self.proctime_annotate_eyes = deque(maxlen=self.avg_len)
 
         self.real_fps = deque(maxlen=self.avg_len)
-        
+
+        if self.save_output:
+            os.makedirs("outputs", exist_ok=True)
         
 
         try:
@@ -93,7 +99,7 @@ class VideoProcessor():
     
 
     def live_processing(self, cap):
-        output_process = multiprocessing.Process(target=self.display_process, args=(self.frame_queue, self.native_fps, self.stop_event, self.interpolate_rate, self.disable_stats))
+        output_process = multiprocessing.Process(target=self.display_process, args=(self.frame_queue, self.native_fps, self.stop_event, self.interpolate_rate, self.disable_stats, self.save_output, self.save_output_queue, self.file_process_fast))
         output_process.start()
         while True:
             ret, frame = cap.read()
@@ -115,6 +121,26 @@ class VideoProcessor():
                 break
 
             self.frame_counter += 1
+
+        # if save_output, save the collected frames to outputs
+        if self.save_output:
+            output_frames = []
+            while True:
+                # go through all frames until queue is empty
+                try:
+                    frame = self.save_output_queue.get(timeout=0.01)
+                    output_frames.append(frame)
+                except queue.Empty:
+                    break
+            video_array = np.array(output_frames)
+            out_file_name = self.video_path
+            if "/" in out_file_name:
+                out_file_name = out_file_name.split("/")[-1]
+            if "\\" in out_file_name:
+                out_file_name = out_file_name.split("/")[-1]
+            if "." in out_file_name:
+                out_file_name = out_file_name.split(".")[-2]
+            misc.write_video(video_array, f"outputs/{out_file_name}.mp4")
 
 
     
@@ -167,7 +193,7 @@ class VideoProcessor():
 
     
 
-    def display_process(self, frame_queue, native_fps, stop_event, interpolate_rate, disable_stats):
+    def display_process(self, frame_queue, native_fps, stop_event, interpolate_rate, disable_stats, save_output, save_output_queue, file_process_fast):
         last_output_time = time.time()
     
         while not stop_event.is_set():
@@ -181,7 +207,7 @@ class VideoProcessor():
                 continue
     
             # wait for next video frame time if processing too fast
-            if not self.iswebcam or frame_queue.qsize()<=interpolate_rate:
+            if (not self.iswebcam or frame_queue.qsize()<=interpolate_rate) and not file_process_fast:
                 while time.time() < last_output_time + (1/native_fps):
                     time.sleep(0.0001)
 
@@ -194,6 +220,10 @@ class VideoProcessor():
             
             # Display the annotated frame
             cv2.imshow('Annotated Video Feed', frame)
+
+            if save_output:
+                save_output_queue.put(frame)
+            
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 stop_event.set()
                 break

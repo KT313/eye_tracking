@@ -6,6 +6,23 @@ it is optimized for low resource cpu usage and can handle (depending on settings
 can also be used on video files.  
 for webcam use, set input_source to 0 in the notebook.  
 
+<video src="outputs/youtube_vid_01.mp4" width="1280" height="720" controls></video>  
+https://youtu.be/bHD4gBP1GRo  
+  
+  
+<video src="outputs/youtube_vid_02.mp4" width="1280" height="720" controls></video>  
+https://youtu.be/P1vwnUpfsg4  
+  
+  
+<video src="outputs/youtube_vid_03.mp4" width="1280" height="720" controls></video>  
+https://youtu.be/DF364juVpGo  
+  
+  
+<video src="outputs/youtube_vid_04.mp4" width="1280" height="720" controls></video>  
+https://youtu.be/OuELBU91EFA  
+  
+  
+
 ### Training of eye recognition model
 1. Put training video in example_video/.
 2. Crop it by running video processor with the video file as source with argument return_instead=True. This will return cropped faces.
