@@ -18,7 +18,7 @@ https://youtu.be/P1vwnUpfsg4
 https://youtu.be/DF364juVpGo  
   
   
-[![Watch the video](outputs/youtube_vid_04.mp4)]  
+![caption](https://raw.githubusercontent.com/KT313/eye_tracking/main/outputs/youtube_vid_03.mp4)  
 https://youtu.be/OuELBU91EFA  
   
   
