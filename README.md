@@ -12,6 +12,10 @@ https://youtu.be/bHD4gBP1GRo
   
 https://raw.githubusercontent.com/KT313/eye_tracking/main/outputs/youtube_vid_01.mp4  
 https://youtu.be/P1vwnUpfsg4  
+
+/assets/youtube_vid_01.mp4
+
+![Alt Text](/assets/youtube_vid_01.mp4)
   
   
 [![Watch the video](https://raw.githubusercontent.com/KT313/eye_tracking/main/outputs/youtube_vid_03.mp4)]  
