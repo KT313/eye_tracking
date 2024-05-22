@@ -6,7 +6,7 @@ it is optimized for low resource cpu usage and can handle (depending on settings
 can also be used on video files.  
 for webcam use, set input_source to 0 in the notebook.  
 
-![](https://github.com/KT313/eye_tracking/blob/main/youtube_vid_01.gif)  
+![](https://github.com/KT313/eye_tracking/blob/main/assets/youtube_vid_01.gif)  
 https://youtu.be/bHD4gBP1GRo
   
   
