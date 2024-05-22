@@ -5,9 +5,13 @@ if face gets recognized, uses my finetuned model, which is based on the pretrain
 it is optimized for low resource cpu usage and can handle (depending on settings) 120fps live video (like webcam).  
 can also be used on video files.  
 for webcam use, set input_source to 0 in the notebook.  
+  
+  
+![](https://github.com/KT313/eye_tracking/blob/main/youtube_vid_04.gif)  
+  
 
-![](https://github.com/KT313/eye_tracking/blob/main/assets/youtube_vid_01.gif)  
-https://youtu.be/bHD4gBP1GRo
+![](https://github.com/KT313/eye_tracking/blob/main/youtube_vid_01.gif)  
+https://youtu.be/bHD4gBP1GRo  
   
   
 

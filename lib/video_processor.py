@@ -125,13 +125,15 @@ class VideoProcessor():
         # if save_output, save the collected frames to outputs
         if self.save_output:
             output_frames = []
+            print(f"saved about {self.save_output_queue.qsize()} frames")
             while True:
                 # go through all frames until queue is empty
                 try:
-                    frame = self.save_output_queue.get(timeout=0.01)
+                    frame = self.save_output_queue.get(timeout=1)
                     output_frames.append(frame)
                 except queue.Empty:
                     break
+            print(f"retrieved {len(output_frames)} frames")
             video_array = np.array(output_frames)
             out_file_name = self.video_path
             if "/" in out_file_name:
@@ -140,7 +142,7 @@ class VideoProcessor():
                 out_file_name = out_file_name.split("/")[-1]
             if "." in out_file_name:
                 out_file_name = out_file_name.split(".")[-2]
-            misc.write_video(video_array, f"outputs/{out_file_name}.mp4")
+            misc.write_video(video_array, f"outputs/{out_file_name}.mp4", frame_rate = self.native_fps)
 
 
     

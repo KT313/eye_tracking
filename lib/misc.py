@@ -185,13 +185,17 @@ def split_list(string_list, ratio):
 
     return train_list, val_list
 
-def write_video(video_array, out_path):
+def write_video(video_array, out_path, frame_rate=None):
     output_file = out_path
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*'MP4V')
     height, width, _ = video_array.shape[1:]
-    video_writer = cv2.VideoWriter(output_file, fourcc, 30, (width, height))
+    if frame_rate == None:
+        frame_rate = 30
+    print(f"writing video of shape {video_array.shape} to path {out_path} with frame_rate {frame_rate}, should be {video_array.shape[0]/frame_rate} seconds long")
+    video_writer = cv2.VideoWriter(output_file, fourcc, frame_rate, (width, height))
     
-    for frame in video_array:
+    for i in tqdm(range(video_array.shape[0])):
+        frame = video_array[i]
         frame_bgr = frame # cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         video_writer.write(frame_bgr)
     video_writer.release()
@@ -199,7 +203,7 @@ def write_video(video_array, out_path):
 def process_video(video_path, processor, interpolate_rate):
     out = processor.start(video_path=video_path, interpolate_rate=interpolate_rate, return_instead=True)
     output_file = f'outputs/{"_".join(video_path.split("/")[-2:])}_output_video.mp4'
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fourcc = cv2.VideoWriter_fourcc(*'MP4V')
 
     if out.size == 0:
         return None
