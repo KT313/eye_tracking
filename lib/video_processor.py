@@ -1,6 +1,12 @@
 from .imports import *
 from . import misc
 
+import math
+import pyvirtualcam
+
+image_eye_open = cv2.imread('eye_open.png', cv2.IMREAD_UNCHANGED)
+image_eye_closed = cv2.imread('eye_closed_new.png', cv2.IMREAD_UNCHANGED)
+
 class FrameElement():
     def __init__(self, face_bbox = None, eyes_points = None, frame = None, cutout_frame = None, stats = None, face_cutout_coords = None, detected_face = None, frame_id = None, annotate_eyes = None, annotate_face = None):
         self.frame_id = frame_id
@@ -41,7 +47,7 @@ class VideoProcessor():
         self.return_instead = False
         self.return_instead_merker = []
 
-    def start(self, video_path, interpolate_rate, eyes_int_rate, return_instead=False, eye_batch_rate=1, device="cpu", disable_stats=False, save_output=False, file_process_fast=False):
+    def start(self, video_path, interpolate_rate, eyes_int_rate, return_instead=False, eye_batch_rate=1, device="cpu", disable_stats=False, save_output=False, file_process_fast=False, make_virtual_cam=False):
         self.disable_stats = disable_stats
         self.device = device
         self.eye_batch_rate = eye_batch_rate
@@ -79,6 +85,8 @@ class VideoProcessor():
         self.proctime_get_eyes_coords = deque(maxlen=self.avg_len)
         self.proctime_annotate_eyes = deque(maxlen=self.avg_len)
 
+        self.make_virtual_cam = make_virtual_cam
+
         self.real_fps = deque(maxlen=self.avg_len)
 
         if self.save_output:
@@ -99,7 +107,7 @@ class VideoProcessor():
     
 
     def live_processing(self, cap):
-        output_process = multiprocessing.Process(target=self.display_process, args=(self.frame_queue, self.native_fps, self.stop_event, self.interpolate_rate, self.disable_stats, self.save_output, self.save_output_queue, self.file_process_fast))
+        output_process = multiprocessing.Process(target=self.display_process, args=(self.frame_queue, self.native_fps, self.stop_event, self.interpolate_rate, self.disable_stats, self.save_output, self.save_output_queue, self.file_process_fast, self.make_virtual_cam))
         output_process.start()
         while True:
             ret, frame = cap.read()
@@ -125,7 +133,7 @@ class VideoProcessor():
         # if save_output, save the collected frames to outputs
         if self.save_output:
             output_frames = []
-            print(f"saved about {self.save_output_queue.qsize()} frames")
+          # print(f"saved about {self.save_output_queue.qsize()} frames")
             while True:
                 # go through all frames until queue is empty
                 try:
@@ -133,7 +141,7 @@ class VideoProcessor():
                     output_frames.append(frame)
                 except queue.Empty:
                     break
-            print(f"retrieved {len(output_frames)} frames")
+          # print(f"retrieved {len(output_frames)} frames")
             video_array = np.array(output_frames)
             out_file_name = self.video_path
             if "/" in out_file_name:
@@ -177,6 +185,11 @@ class VideoProcessor():
                     
             for i in range(loop_start, self.block_endframe+1):
                 self.annotate_eyes(i)
+                try:
+                    self.insert_eye_emojis(i) # für emojis auf den Augen
+                    self.insert_histogram(i) # für histogram
+                except:
+                    pass
 
             if not self.disable_stats:
                 for i in range(loop_start, self.block_endframe+1):
@@ -195,41 +208,80 @@ class VideoProcessor():
 
     
 
-    def display_process(self, frame_queue, native_fps, stop_event, interpolate_rate, disable_stats, save_output, save_output_queue, file_process_fast):
-        last_output_time = time.time()
+    def display_process(self, frame_queue, native_fps, stop_event, interpolate_rate, disable_stats, save_output, save_output_queue, file_process_fast, make_virtual_cam):
+
+        if not make_virtual_cam:
+            last_output_time = time.time()
+        
+            while not stop_event.is_set():
+                # print(frame_queue.qsize())
+                try:
+                    frame, annotations, stats = frame_queue.get(timeout=0.01)
+                except queue.Empty:
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        stop_event.set()
+                        break
+                    continue
+        
+                # wait for next video frame time if processing too fast
+                if (not self.iswebcam or frame_queue.qsize()<=interpolate_rate) and not file_process_fast:
+                    while time.time() < last_output_time + (1/native_fps):
+                        time.sleep(0.0001)
     
-        while not stop_event.is_set():
-            # print(frame_queue.qsize())
-            try:
-                frame, annotations, stats = frame_queue.get(timeout=0.01)
-            except queue.Empty:
+                self.real_fps.append(1/(time.time()-last_output_time))
+                avg_real_fps = sum(self.real_fps)/len(self.real_fps)
+                if not disable_stats:
+                    cv2.putText(frame, f"output fps: {avg_real_fps:.1f} / {self.native_fps:.1f}", (5, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                last_output_time = time.time()
+                # time.sleep(0.2)
+                
+                # Display the annotated frame
+                cv2.imshow('Annotated Video Feed', frame)
+    
+                if save_output:
+                    save_output_queue.put(frame)
+                
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     stop_event.set()
                     break
-                continue
-    
-            # wait for next video frame time if processing too fast
-            if (not self.iswebcam or frame_queue.qsize()<=interpolate_rate) and not file_process_fast:
-                while time.time() < last_output_time + (1/native_fps):
-                    time.sleep(0.0001)
 
-            self.real_fps.append(1/(time.time()-last_output_time))
-            avg_real_fps = sum(self.real_fps)/len(self.real_fps)
-            if not disable_stats:
-                cv2.putText(frame, f"output fps: {avg_real_fps:.1f} / {self.native_fps:.1f}", (5, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        else:
             last_output_time = time.time()
-            # time.sleep(0.2)
-            
-            # Display the annotated frame
-            cv2.imshow('Annotated Video Feed', frame)
-
-            if save_output:
-                save_output_queue.put(frame)
-            
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                stop_event.set()
-                break
-
+    
+            # Create a virtual camera with the desired settings
+            cam_width = 1280
+            cam_height = 720
+            cam_fps = native_fps
+            cam_fmt = pyvirtualcam.camera.PixelFormat.BGR
+    
+            with pyvirtualcam.Camera(width=cam_width, height=cam_height, fmt=cam_fmt, fps=cam_fps, device='/dev/video4') as cam:
+                while not stop_event.is_set():
+                    try:
+                        frame, annotations, stats = frame_queue.get(timeout=0.01)
+                    except queue.Empty:
+                        continue
+    
+                    # Resize the frame to match the virtual camera resolution
+                    frame = cv2.resize(frame, (cam_width, cam_height))
+    
+                    # Wait for the next video frame time if processing too fast
+                    if (not self.iswebcam or frame_queue.qsize() <= interpolate_rate) and not file_process_fast:
+                        while time.time() < last_output_time + (1 / native_fps):
+                            time.sleep(0.0001)
+    
+                    self.real_fps.append(1 / (time.time() - last_output_time))
+                    avg_real_fps = sum(self.real_fps) / len(self.real_fps)
+                    if not disable_stats:
+                        cv2.putText(frame, f"output fps: {avg_real_fps:.1f} / {self.native_fps:.1f}", (5, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                    last_output_time = time.time()
+    
+                    # Send the frame to the virtual camera
+                    # print("a")
+                    cam.send(frame)
+                    cam.sleep_until_next_frame()
+    
+                    if save_output:
+                        save_output_queue.put(frame)
 
 
 
@@ -305,12 +357,148 @@ class VideoProcessor():
             self.buffer[frame_id].eyes_points = eye_coords
 
         # add points in frame
-        for coord in self.buffer[frame_id].eyes_points:
+        comment = """
+        for index, coord in enumerate(self.buffer[frame_id].eyes_points):
             coord = ((coord[0]), (coord[1]))
             coord = (int(coord[0]), int(coord[1]))
             cv2.circle(self.buffer[frame_id].frame, coord, 2, (0, 255, 0), -1)
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            fontScale = 1
+            fontColor = (255,255,255)
+            thickness = 1
+            lineType = 2
+            cv2.putText(self.buffer[frame_id].frame, str(index), coord, font, fontScale, fontColor, thickness, lineType)
+            """
 
         self.buffer[frame_id].processing_times.append(time.time()-start_time)
+
+    def insert_eye_emojis(self, frame_id):
+
+        y_scaling = 1.2 # 2.0 would be normal
+        x_scaling = 1.6 # 2.0 would be normal
+        
+        if len(self.buffer[frame_id].eyes_points) == 10:
+            right_outer = self.buffer[frame_id].eyes_points[0]
+            right_middle = self.buffer[frame_id].eyes_points[1]
+            right_inner = self.buffer[frame_id].eyes_points[2]
+            right_upper = self.buffer[frame_id].eyes_points[6]
+            right_lower = self.buffer[frame_id].eyes_points[7]
+        
+            right_width = abs(math.ceil(right_outer[0]) - math.ceil(right_inner[0]))
+            right_height = abs(math.ceil(right_upper[1]) - math.ceil(right_lower[1]))
+        
+          # print(right_width, right_height)
+            if right_width > 1 and right_height > 1:  # Adjust the threshold as needed
+
+                if right_height > (right_width/4):
+                    image_to_use = image_eye_open
+                else:
+                    image_to_use = image_eye_closed
+                
+        
+                
+                
+                eye_roi = self.buffer[frame_id].frame[math.floor(right_middle[1] - right_height / y_scaling): math.ceil(right_middle[1] + right_height / y_scaling),
+                                                      math.ceil(right_middle[0] - right_width / x_scaling): math.ceil(right_middle[0] + right_width / x_scaling)]
+                resized_emoji = cv2.resize(image_to_use[:, :, :3], (eye_roi.shape[1], eye_roi.shape[0]))
+                resized_alpha = cv2.resize(image_to_use[:, :, 3], (eye_roi.shape[1], eye_roi.shape[0]))
+                mask = resized_alpha / 255.0
+                mask = np.repeat(mask[:, :, np.newaxis], 3, axis=2)
+              # print("mask.shape:", mask.shape)
+              # print("resized_alpha.shape:", resized_alpha.shape)
+              # print("eye_roi.shape:", eye_roi.shape)
+              # print("right middle[1]:", right_middle[1])
+              # print((right_middle[0] - right_width // 2))
+              # print((right_middle[0] + right_width // 2))
+                blended_roi = (eye_roi * (1 - mask) + resized_emoji * mask).astype(np.uint8)
+                self.buffer[frame_id].frame[math.floor(right_middle[1] - right_height / y_scaling): math.ceil(right_middle[1] + right_height / y_scaling),
+                                                      math.ceil(right_middle[0] - right_width / x_scaling): math.ceil(right_middle[0] + right_width / x_scaling)] = blended_roi
+            
+                    
+            left_outer = self.buffer[frame_id].eyes_points[5]
+            left_middle = self.buffer[frame_id].eyes_points[4]
+            left_inner = self.buffer[frame_id].eyes_points[3]
+            left_upper = self.buffer[frame_id].eyes_points[8]
+            left_lower = self.buffer[frame_id].eyes_points[9]
+
+            left_width = abs(math.ceil(left_outer[0]) - math.ceil(left_inner[0]))
+            left_height = abs(math.ceil(left_upper[1]) - math.ceil(left_lower[1]))
+        
+          # print(left_width, left_height)
+            if left_width > 1 and left_height > 1:  # Adjust the threshold as needed
+
+                if left_height > (left_width/4):
+                    image_to_use = image_eye_open
+                else:
+                    image_to_use = image_eye_closed
+                
+        
+                
+                eye_roi = self.buffer[frame_id].frame[math.floor(left_middle[1] - left_height / y_scaling): math.ceil(left_middle[1] + left_height / y_scaling),
+                                                      math.ceil(left_middle[0] - left_width / x_scaling): math.ceil(left_middle[0] + left_width / x_scaling)]
+                resized_emoji = cv2.resize(image_to_use[:, :, :3], (eye_roi.shape[1], eye_roi.shape[0]))
+                resized_alpha = cv2.resize(image_to_use[:, :, 3], (eye_roi.shape[1], eye_roi.shape[0]))
+                mask = resized_alpha / 255.0
+                mask = np.repeat(mask[:, :, np.newaxis], 3, axis=2)
+              # print("mask.shape:", mask.shape)
+              # print("resized_alpha.shape:", resized_alpha.shape)
+              # print("eye_roi.shape:", eye_roi.shape)
+              # print("left middle[1]:", left_middle[1])
+              # print((left_middle[0] - left_width // 2))
+              # print((left_middle[0] + left_width // 2))
+                blended_roi = (eye_roi * (1 - mask) + resized_emoji * mask).astype(np.uint8)
+                self.buffer[frame_id].frame[math.floor(left_middle[1] - left_height / y_scaling): math.ceil(left_middle[1] + left_height / y_scaling),
+                                                      math.ceil(left_middle[0] - left_width / x_scaling): math.ceil(left_middle[0] + left_width / x_scaling)] = blended_roi
+
+
+    
+
+    def insert_histogram(self, frame_id):
+        frame = self.buffer[frame_id].frame
+        colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]  # BGR colors for histogram lines
+        hist_img = np.zeros((1000, 256, 3), dtype=np.uint8)
+    
+        # Calculate and draw the original histogram
+        for i, color in enumerate(colors):
+            hist = cv2.calcHist([frame], [i], None, [256], [0, 256])
+            cv2.normalize(hist, hist, 0, 200, cv2.NORM_MINMAX)
+    
+            for j in range(1, 256):
+                cv2.line(hist_img, (j - 1, 200 - int(hist[j - 1])),
+                         (j, 200 - int(hist[j])), color, 1)
+    
+        # Calculate and draw the equalized histogram
+        eq_frame = np.copy(frame)
+        for i in range(3):
+            eq_frame[:, :, i] = cv2.equalizeHist(eq_frame[:, :, i])
+    
+        for i, color in enumerate(colors):
+            eq_hist = cv2.calcHist([eq_frame], [i], None, [256], [0, 256])
+            cv2.normalize(eq_hist, eq_hist, 0, 200, cv2.NORM_MINMAX)
+    
+            for j in range(1, 256):
+                cv2.line(hist_img, (j - 1, 400 - int(eq_hist[j - 1])),
+                         (j, 400 - int(eq_hist[j])), color, 1)
+    
+        # Edge detection
+        edge_frame = cv2.Canny(frame, 100, 200) # kann auch mit mehreren kerneln np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]]) usw gemacht werden
+        edge_frame = cv2.cvtColor(edge_frame, cv2.COLOR_GRAY2BGR)
+        edge_frame = cv2.resize(edge_frame, (200, 200))
+        hist_img[400:600, 28:228] = edge_frame
+    
+        # Simple blurring
+        blur_frame = cv2.GaussianBlur(frame, (5, 5), 0) # kann auch mit kernel np.array([[0.5, 1, 0.5], [1, 3, 1], [0.5, 1, 0.5]]) gemacht werden
+        blur_frame = cv2.resize(blur_frame, (200, 200))
+        hist_img[600:800, 28:228] = blur_frame
+    
+        # Simple sharpening
+        kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
+        sharp_frame = cv2.filter2D(frame, -1, kernel)
+        sharp_frame = cv2.resize(sharp_frame, (200, 200))
+        hist_img[800:1000, 28:228] = sharp_frame
+    
+        hist_img = cv2.resize(hist_img, (200, 400))
+        self.buffer[frame_id].frame[10:410, self.buffer[frame_id].frame.shape[1] - 210:self.buffer[frame_id].frame.shape[1] - 10] = hist_img
 
         
 
@@ -361,7 +549,7 @@ class VideoProcessor():
                 eye_coords_merker.append(eye_coords)
     
             # for index, entry in enumerate(eye_coords_merker):
-            #     print(f"eye_coords_merker[{index}]:", len(entry))
+            #   # print(f"eye_coords_merker[{index}]:", len(entry))
     
             for frame_id in self.buffer:
                 if self.buffer[frame_id].annotate_eyes and self.buffer[frame_id].eyes_points == None and isinstance(self.buffer[frame_id].cutout_frame, np.ndarray):

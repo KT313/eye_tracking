@@ -5,3 +5,4 @@ data/03_val_split/*
 .virtual_documents/
 .mypy_cache/
 yolov8finetune_eyes/*
+VirtualCamera/
